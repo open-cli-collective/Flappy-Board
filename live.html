@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Split-flap · Live display</title><style>:root{color-scheme:dark;font:14px system-ui;background:#101216;color:#dfe6eb}body{margin:0;padding:24px;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center}#display{width:100%;max-width:1600px;margin:auto}form{display:flex;gap:10px;align-items:center;justify-content:center;margin:20px;flex-wrap:wrap}button,input{padding:8px 12px;border-radius:7px;border:1px solid #ffffff25;background:#ffffff0a;color:inherit}output{font-size:12px;color:#99acb6}</style><div id="display"></div><form id="connection"><label>API token <input id="token" type="password" autocomplete="off" placeholder="Optional"></label><button>Connect</button><output id="status">Connecting…</output></form><script src="visuals.js"></script><script src="core.js"></script><script src="board.js"></script><script>
+const board=new SplitFlapBoard(document.querySelector('#display'));let controller;
+async function connect(){controller?.abort();const local=new AbortController();controller=local;const status=document.querySelector('#status');const token=document.querySelector('#token').value;
+  while(!local.signal.aborted){try{
+    status.textContent='Connecting…';const response=await fetch('/api/events',{headers:token?{Authorization:'Bearer '+token}:{},signal:local.signal});
+    if(!response.ok){status.textContent=response.status===401?'Token required or incorrect':'Connection failed: '+response.status;return;}
+    status.textContent='Connected';const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
+    while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;
+      while((boundary=buffer.indexOf('\n\n'))>=0){const block=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);const type=block.split('\n').find(l=>l.startsWith('event: '))?.slice(7);const raw=block.split('\n').find(l=>l.startsWith('data: '))?.slice(6);if(!raw)continue;const data=JSON.parse(raw);
+        if(type==='snapshot'){board.configure(data.config);board.show(data.message);}else if(type==='config')board.configure(data);else if(type==='message')board.show(data);
+      }
+    }
+  }catch(error){if(local.signal.aborted)return;}
+  if(!local.signal.aborted){status.textContent='Disconnected · reconnecting';await new Promise(r=>setTimeout(r,2000));}
+  }
+}
+document.querySelector('#connection').onsubmit=e=>{e.preventDefault();connect();};connect();
+</script></html>

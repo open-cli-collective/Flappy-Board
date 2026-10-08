@@ -1,0 +1,20 @@
+{
+  "id": "example",
+  "lines": [
+    "  HELLO 🤖",
+    "  準備完了"
+  ],
+  "effects": [
+    {
+      "at": {
+        "x": 12,
+        "y": 1
+      },
+      "frames": [
+        " ",
+        "▌"
+      ],
+      "intervalMs": 700
+    }
+  ]
+}

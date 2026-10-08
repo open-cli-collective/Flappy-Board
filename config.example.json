@@ -1,0 +1,12 @@
+{
+  "columns": 16,
+  "rows": 4,
+  "aspectRatio": 0.64,
+  "characterScale": 1.35,
+  "transition": {
+    "type": "wave",
+    "direction": "left-to-right",
+    "durationMs": 1800,
+    "sweepMs": 900
+  }
+}

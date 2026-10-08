@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Split-flap browser tests</title><style>body{background:#15191e;color:#eee;font:14px monospace}#host{width:600px}</style><h1>Renderer integration tests</h1><pre id="results">Running…</pre><div id="host"></div><script src="visuals.js"></script><script src="core.js"></script><script src="board.js"></script><script>
+(async()=>{
+const output=document.querySelector('#results'),passed=[];
+const assert=(condition,message)=>{if(!condition)throw Error(message);};const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const board=new SplitFlapBoard(document.querySelector('#host'),{columns:4,rows:2,reducedMotion:false,transition:{type:'flip',durationMs:70}});
+try{
+let r=board.show({id:'unicode',lines:['👩‍💻é🇯🇵界'],transition:{type:'instant'}});assert(r.accepted,'accept unicode');assert((await r.finished).status==='settled','settles');assert(board.getState().visible[0].text==='👩‍💻','joined glyph');passed.push('Unicode rendering');
+const before=JSON.stringify(board.getState());r=board.show({transition:{type:'bogus'}});assert(!r.accepted,'reject bad transition');assert(JSON.stringify(board.getState())===before,'invalid input mutated screen');passed.push('Atomic rejection');
+r=board.show({lines:['AAAA'],transition:{type:'wave',durationMs:220,sweepMs:110}});await wait(60);const newer=board.show({lines:['BBBB']});assert((await r.finished).status==='superseded','replacement status');await newer.finished;assert(board.getState().visible.slice(0,4).every(f=>f.text==='B'),'replacement wins');passed.push('Mid-flip latest message wins');
+r=board.show({lines:['BASE'],transition:{type:'instant'},effects:[{at:{x:0,y:0},frames:['X','Y'],intervalMs:45,repeat:2}]});await r.finished;assert(board.getState().visible[0].text==='X','effects start after settle');await wait(210);assert(board.getState().visible[0].text==='B','finite effect restores base');passed.push('Finite effects restore base');
+r=board.show({lines:['BASE'],transition:{type:'instant'},effects:[{at:{x:0,y:0},frames:[{color:'#ff0000'},' '],intervalMs:70,transition:{type:'flip',durationMs:50}}]});await r.finished;await wait(90);await board.show({lines:['DONE'],transition:{type:'instant'}}).finished;await wait(160);assert(board.getState().visible[0].text==='D','old effect returned');passed.push('Ongoing effects cancel on replacement');
+r=board.show({lines:['test'],transition:{type:'wave',durationMs:200,sweepMs:100}});const config=board.configure({columns:3,rows:1});assert(config.accepted&&config.cleared,'resize clears');assert((await r.finished).status==='reconfigured','reconfigure completion');assert(board.getState().visible.length===3,'new grid');passed.push('Reconfiguration during transition');
+board.configure({reducedMotion:true});const start=performance.now();await board.show({lines:['XYZ'],transition:{type:'wave',durationMs:2000,sweepMs:1000}}).finished;assert(performance.now()-start<500,'reduced motion delayed');passed.push('Reduced motion');
+await board.clear({type:'instant'}).finished;assert(board.getState().visible.every(f=>f.text===' '),'clear');const last=board.show({lines:['ABC'],transition:{type:'flip',durationMs:1000}});board.destroy();assert((await last.finished).status==='destroyed','destroy promise');assert(document.querySelector('#host').shadowRoot.children.length===0,'destroy cleanup');passed.push('Clear and destroy');
+output.textContent='PASS '+passed.length+'/8\n'+passed.join('\n');document.title='PASS · Split-flap browser tests';
+}catch(error){output.textContent='FAIL\n'+passed.join('\n')+'\n'+error.stack;document.title='FAIL · Split-flap browser tests';}
+})();
+</script>

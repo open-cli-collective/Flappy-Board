@@ -1,0 +1,285 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Split-flap API · v1.0.0</title><style>:root{color-scheme:dark;font:15px/1.6 system-ui;background:#101216;color:#d8e1e8}body{max-width:1050px;margin:auto;padding:35px 22px}a{color:#a9cedd}h1{font-size:30px}h2{font-size:19px;color:#eef3f5}section{padding:15px 0;border-top:1px solid #ffffff15}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.65 ui-monospace,monospace;color:#b7c5d0}p{color:#95a6b4}</style><nav><a href="index.html">Playground</a> · <a href="live.html">Live display</a> · <a href="catalog-study.html">Catalog study</a></nav><h1>Split-flap API</h1><p>Version 1.0.0 · Portable browser renderer + optional HTTP transport</p><section><h2>1. Embed the board</h2><pre>&lt;div id=&quot;board&quot; style=&quot;width:100%;max-width:1200px&quot;&gt;&lt;/div&gt;
+&lt;script src=&quot;visuals.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;core.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;board.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+  const board = new SplitFlapBoard(document.querySelector(&#x27;#board&#x27;), {
+    columns: 22,
+    rows: 6,
+    aspectRatio: 0.525,
+    characterScale: 1.35,
+    transition: {
+      type: &#x27;wave&#x27;,
+      direction: &#x27;left-to-right&#x27;,
+      durationMs: 1800,
+      sweepMs: 900
+    }
+  });
+
+  const result = board.show({
+    id: &#x27;welcome-1&#x27;,
+    lines: [&#x27;  HELLO 🤖&#x27;, &#x27;  準備完了&#x27;]
+  });
+  if (result.accepted) {
+    console.log(result.warnings);
+    result.finished.then(console.log);
+  } else {
+    console.error(result.errors);
+  }
+&lt;/script&gt;
+
+No module loader is required. For a bundler, copy
+these three browser assets into its public/static directory and load them in
+order. SplitFlapBoard is exposed on window. core.js additionally supports require().
+Use a dedicated host element that does not already have a shadow root.
+The host width determines tile size; each tile preserves aspectRatio.</pre></section><section><h2>2. Methods and receipts</h2><pre>new SplitFlapBoard(hostElement, options = {})
+  Creates a blank board. Invalid initial configuration throws TypeError.
+
+board.show(message)
+  Validates synchronously, then begins rendering. Returns one of:
+
+  { accepted: true, id: &#x27;welcome-1&#x27;, warnings: [], finished: Promise }
+  { accepted: false, errors: [{ code: &#x27;INVALID_MESSAGE&#x27;, message: &#x27;...&#x27; }] }
+
+  finished resolves when the base message settles:
+    { status: &#x27;settled&#x27;, id: &#x27;welcome-1&#x27; }
+  If interrupted before settling, it resolves with status:
+    &#x27;superseded&#x27; | &#x27;reconfigured&#x27; | &#x27;destroyed&#x27;
+  It never waits for infinite effects. Effects start as the base settles.
+  Accepted receipts contain a Promise and are not themselves a wire protocol;
+  the optional HTTP adapter returns a serializable acceptance receipt instead.
+
+board.configure(patch)
+  Merges a partial configuration (including a partial transition object).
+  Returns { accepted: true, cleared: boolean, config: fullConfiguration }
+  or { accepted: false, errors: [{code:&#x27;INVALID_CONFIG&#x27;, message:&#x27;...&#x27;}] }.
+  Invalid patches leave the board untouched.
+  Successful configuration stops effects and any active message transition.
+  A row/column change clears all cells. Other changes retain the base message,
+  immediately settle it, and restyle it. Resend the message to restart effects.
+
+board.clear(transition?)
+  Equivalent to show({lines:[], transition}), filling every cell with blanks.
+  With no transition argument it uses the board&#x27;s default transition.
+  Returns the same receipt as show(). Cancels all previous effects.
+
+board.getState()
+  Returns a detached snapshot:
+    { config, id, base, visible, transitioning }
+  base/visible are row-major arrays of {text, color}; color is null for text.
+  visible tracks stable logical faces, not a composite image during a flip.
+  transitioning refers to the base-message transition, not ongoing effects.
+
+board.destroy()
+  Stops animations/timers, resolves pending completion, disconnects resize
+  observation, and empties the shadow root. Idempotent. Other methods throw
+  after destruction. Use a fresh host element to create another board.</pre></section><section><h2>3. Board configuration</h2><pre>Defaults:
+{
+  &quot;columns&quot;: 22,
+  &quot;rows&quot;: 6,
+  &quot;aspectRatio&quot;: 0.525,
+  &quot;characterScale&quot;: 1,
+  &quot;faceColor&quot;: &quot;#2a2f37&quot;,
+  &quot;textColor&quot;: &quot;#f0f0e9&quot;,
+  &quot;frameColor&quot;: null,
+  &quot;fontFamily&quot;: &quot;\&quot;Helvetica Neue\&quot;,Arial,sans-serif&quot;,
+  &quot;reducedMotion&quot;: &quot;system&quot;,
+  &quot;transition&quot;: {
+    &quot;type&quot;: &quot;wave&quot;,
+    &quot;direction&quot;: &quot;left-to-right&quot;,
+    &quot;durationMs&quot;: 1800,
+    &quot;sweepMs&quot;: 900
+  }
+}
+
+columns: integer 1–64; rows: integer 1–32; maximum 1024 cells total.
+aspectRatio: width/height, 0.25–2. Tall reference: 0.525; squat study: 0.64.
+characterScale: 0.25–2. Scales both text and emoji; oversized glyphs clip to faces.
+faceColor/textColor: six-digit #RRGGBB. Blank cells use faceColor.
+frameColor: #RRGGBB or null for the original gradient material.
+fontFamily: a nonempty CSS font-family string. Fonts must be supplied by the host
+or installed locally. Emoji retain the dedicated color-emoji fallback stack.
+reducedMotion: &#x27;system&#x27;, true, or false. Reduced motion makes flips instant and
+removes sweep delays. Timed ongoing effects still advance their frames.
+
+The catalog checkboxes in catalog-study.html are demo-only controls. Any supported
+text, emoji, or color can appear in an incoming message without enabling a catalog.</pre></section><section><h2>4. Message shape</h2><pre>{
+  &quot;id&quot;: &quot;agent-status-42&quot;,
+  &quot;lines&quot;: [
+    &quot;  AGENT 🤖   &quot;,
+    &quot;  準備完了    &quot;,
+    &quot;            &quot;
+  ],
+  &quot;cells&quot;: [
+    { &quot;at&quot;: {&quot;x&quot;: 0, &quot;y&quot;: 0}, &quot;value&quot;: {&quot;color&quot;: &quot;#2f9fff&quot;} }
+  ],
+  &quot;transition&quot;: {
+    &quot;type&quot;: &quot;wave&quot;,
+    &quot;direction&quot;: &quot;left-to-right&quot;,
+    &quot;durationMs&quot;: 1800,
+    &quot;sweepMs&quot;: 900
+  },
+  &quot;effects&quot;: [
+    {
+      &quot;at&quot;: {&quot;x&quot;: 10, &quot;y&quot;: 1},
+      &quot;frames&quot;: [&quot; &quot;, &quot;▌&quot;],
+      &quot;intervalMs&quot;: 700,
+      &quot;transition&quot;: {&quot;type&quot;: &quot;instant&quot;}
+    },
+    {
+      &quot;at&quot;: {&quot;x&quot;: 2, &quot;y&quot;: 2},
+      &quot;frames&quot;: [&quot;🤖&quot;, &quot;🦞&quot;, &quot;👾&quot;],
+      &quot;intervalMs&quot;: 2000,
+      &quot;transition&quot;: {&quot;type&quot;: &quot;flip&quot;, &quot;durationMs&quot;: 400}
+    }
+  ]
+}
+
+All top-level fields are optional. {} is a valid all-blank message.
+id is an optional string for correlation; it does not deduplicate messages.
+Omitted lines/cells/effects default to empty arrays. Omitted transition inherits
+board defaults. An explicit transition is a partial override of those defaults.
+
+Coordinates are zero-based: x is the column, y is the row, origin top-left.
+The board is rebuilt logically from scratch for each message:
+  blank grid → lines → cell overrides → ongoing effects.
+This is a complete snapshot, not a partial update. Omitted positions become blank.</pre></section><section><h2>5. Whitespace, Unicode, and colors</h2><pre>Each lines entry occupies exactly one board row. No trim, centering, uppercasing,
+word wrapping, or normalization is applied. Supply leading spaces for placement.
+Explicit trailing spaces are honored; omitted trailing positions are also blank.
+Additional rows and columns are truncated with warnings. Short rows and missing
+rows are padded with spaces. Text after a row&#x27;s width does not wrap to the next row.
+
+A cell holds one Unicode grapheme cluster, using Intl.Segmenter:
+  A, 界, é, 🤖, 👩‍💻, 🇯🇵 each occupy one cell.
+CJK full-width typography still occupies one grid cell. Glyph availability and
+emoji artwork depend on the viewing device&#x27;s fonts. Glyphs that are too large
+are clipped, so characterScale is a visual fitting control.
+
+lines entries cannot contain tabs, CR, or LF. Convert multiline input explicitly:
+  const lines = text.replace(/\r\n?/g, &#x27;\n&#x27;).split(&#x27;\n&#x27;);
+A newline starts the next row; the remaining cells in the prior row stay blank.
+
+Each cells[].value and effects[].frames[] entry is either:
+  &quot;A&quot;                     one grapheme
+  &quot; &quot;                     blank charcoal face
+  {&quot;color&quot;:&quot;#2f9fff&quot;}     solid-color face, no glyph
+
+Color faces retain the hinge, shadows, and texture. All other text faces return
+to faceColor; colors do not leak from a prior screen. Emoji such as 🟦 are literal
+emoji, not special color syntax. Empty string is not a valid single-cell value;
+use a space. Colors accept #RRGGBB, not named colors or alpha.
+Duplicate explicit cell overrides are rejected to avoid order-dependent placement.</pre></section><section><h2>6. Transition semantics</h2><pre>type: &#x27;instant&#x27; | &#x27;flip&#x27; | &#x27;wave&#x27;
+direction: &#x27;left-to-right&#x27; | &#x27;right-to-left&#x27; | &#x27;top-to-bottom&#x27; | &#x27;bottom-to-top&#x27;
+durationMs: total base-message transition duration, 0–60000 milliseconds.
+sweepMs: time from first axis position starting to last axis position starting.
+
+instant ignores supplied timing and normalizes it to zero.
+flip starts every changed cell together; sweepMs becomes zero.
+wave requires 0 &lt;= sweepMs &lt; durationMs; durationMs must be positive.
+For an N-column left-to-right wave:
+  start delay = x / (N - 1) * sweepMs
+  individual flip duration = durationMs - sweepMs
+For a one-column horizontal wave, delay is zero and the flip uses full durationMs.
+Vertical waves use rows in the same way. Unchanged cells stay still. The base
+completion promise waits the configured total duration even if edge cells did
+not change. Browser frame scheduling can add a small amount of latency; background
+or throttled tabs are not real-time clocks.
+
+This version uses one full old-face → new-face flip per changed cell. It does not
+scramble through intermediate alphabet characters during a message transition.
+Shading and rotation share the same timeline. Direction affects wave order only.</pre></section><section><h2>7. Ongoing effects</h2><pre>An effect sparsely overrides one cell after the base message settles. Every cell
+may have an effect, but specifying only a few keeps the payload small. Duplicate
+effect coordinates are rejected. Out-of-bounds coordinates generate warnings.
+
+frames: 2–256 single-cell values.
+intervalMs: 16–86400000; interval between frame starts, not extra dwell after a flip.
+transition: optional; defaults to instant. Only instant/flip are supported here.
+  A flip needs a positive durationMs &lt;= intervalMs. No per-cell wave.
+repeat: optional positive integer, maximum 1000000, counting complete frame cycles.
+  Omitted means repeat until the message is replaced/cleared/reconfigured/destroyed.
+
+Frame zero begins when the base settles. With frames [A,B], intervalMs 1000,
+repeat 2: A starts at 0s, B at 1s, A at 2s, B at 3s; at 4s the effect restores
+the underlying base cell using the effect transition. Independent effects have
+independent timers and transitions. Animations are interrupted safely if a browser
+is late processing a frame. A blink is represented by [&quot; &quot;,&quot;▌&quot;]. A smoothly fading
+opacity pulse is not a separate supported effect in v1.
+
+A new valid message cancels all previous timers and animations. A half-flipped
+cell snaps to its source or destination according to whether it passed the
+midpoint, then transitions toward the new message. This avoids retaining torn
+half-glyphs as a new stable state. Invalid messages do not cancel anything.
+There is no queue, playlist, or message expiry in this version.</pre></section><section><h2>8. Validation and warnings</h2><pre>Validation finishes before the current display is changed. Unknown object keys,
+invalid types, noninteger coordinates, negative coordinates, invalid colors,
+invalid timings, and duplicate cell/effect targets reject the whole message.
+Nonnegative integer coordinates outside the board are ignored with warnings.
+Malformed out-of-bounds entries are still rejected; their values must be valid.
+
+Warning codes:
+  ROW_TRUNCATED       {y, received, rendered} — grapheme counts
+  ROWS_TRUNCATED      {received, rendered} — row counts
+  CELL_OUT_OF_BOUNDS  {at:{x,y}}
+  EFFECT_OUT_OF_BOUNDS {at:{x,y}}
+
+Example:
+{
+  &quot;accepted&quot;: true,
+  &quot;id&quot;: &quot;status-42&quot;,
+  &quot;warnings&quot;: [
+    {&quot;code&quot;:&quot;ROW_TRUNCATED&quot;, &quot;y&quot;:1, &quot;received&quot;:24, &quot;rendered&quot;:22}
+  ]
+}</pre></section><section><h2>9. Optional HTTP transport</h2><pre>Requires Node 20+. No npm install:
+  node server.cjs
+
+Default address: http://127.0.0.1:8787
+Open /live.html for the connected display. Multiple open live displays receive
+updates. /index.html is an independent editing playground, not a remote publisher.
+
+Environment:
+  HOST=127.0.0.1
+  PORT=8787
+  API_TOKEN=optional-secret
+
+With API_TOKEN set, every /api request requires:
+  Authorization: Bearer optional-secret
+The live page has a token field; the token stays in page memory. Static files are
+readable without it. Without API_TOKEN, API routes are unauthenticated. The server
+binds only to loopback by default. Set HOST to the desired interface or place it
+behind your application&#x27;s proxy/Tailscale setup. This package does not configure
+network access or TLS. CORS is not enabled; the live page is served on the same origin.
+
+Routes:
+  POST  /api/message   JSON message. Returns acceptance, id, warnings, connectedDisplays.
+  PATCH /api/config    JSON configuration patch. Returns accepted, cleared, full config.
+  POST  /api/clear     Clears all displays using configured default transition; no body.
+  GET   /api/state     Current config, current message snapshot, connectedDisplays.
+  GET   /api/events    SSE stream: snapshot, message, and config events.
+
+Example:
+  curl http://127.0.0.1:8787/api/message \
+    -H &#x27;Content-Type: application/json&#x27; \
+    -d &#x27;{&quot;id&quot;:&quot;hello&quot;,&quot;lines&quot;:[&quot;  HELLO 🤖&quot;,&quot;  準備完了&quot;]}&#x27;
+
+For a configured token, add -H &#x27;Authorization: Bearer your-token&#x27;.
+Use --data-binary @message.json for larger messages so whitespace stays intact.
+
+HTTP errors: 400 invalid JSON; 401 token failure; 413 body over 256 KiB;
+422 invalid payload/configuration; 404 unknown API route/method.
+A successful POST means the server accepted the payload and sent it to current
+connections; it is not a renderer acknowledgment or proof the animation settled.
+An accepted message with connectedDisplays:0 is retained for future connections.
+
+The server is a single in-memory channel. Restarting resets its state. It sends
+the current snapshot on connection; reconnecting replays the message and restarts
+its effects. Separate displays do not share an exact animation clock. A config
+change stops effects; reconnect snapshots reflect that stopped state.
+Use your application&#x27;s storage, identity, routing, and message delivery if you need
+persistence or multiple named boards. An existing WebSocket client can simply do:
+  socket.addEventListener(&#x27;message&#x27;, event =&gt; board.show(JSON.parse(event.data)));</pre></section><section><h2>10. Tests and portability</h2><pre>node --test core.test.cjs server.test.cjs
+  Open browser-tests.html for renderer integration tests.
+
+No build step, package registry dependencies, external assets, analytics, or
+network calls in the renderer. Its only network activity is optional live.html
+connecting to its same-origin HTTP adapter. Visual markup/CSS is isolated in a
+shadow root. Use current browsers with Intl.Segmenter, Web Animations,
+ResizeObserver, Shadow DOM, and CSS container units.</pre></section></html>

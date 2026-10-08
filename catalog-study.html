@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Split-flap · Cell study</title>
+<style>
+  :root { color-scheme:dark; font-family:system-ui,sans-serif; background:#101216; color:#eee; }
+  * { box-sizing:border-box }
+  body { margin:0; min-height:100svh; display:grid; place-items:center; background:radial-gradient(ellipse at 50% 35%,#282d34 0%,#16191e 45%,#0c0e11 100%); }
+  main { display:flex; flex-direction:column; align-items:center; padding:40px 20px; }
+  h1 { font-size:11px; text-transform:uppercase; letter-spacing:.26em; color:#9ba3af; font-weight:500; margin:0 0 35px; }
+  .frame { padding:23px; border-radius:24px; background:linear-gradient(130deg,#343940,#20242a 45%,#181b20); box-shadow:inset 0 1px 1px #ffffff25,inset 0 -1px 1px #0009,0 22px 35px #0006,0 50px 90px #0005; position:relative; }
+  .frame::after { content:""; pointer-events:none; position:absolute; inset:0; border-radius:inherit; opacity:.14; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23n)' d='M0 0h160v160H0z'/%3E%3C/svg%3E"); }
+  .cell { width:var(--cell-width,220px); aspect-ratio:var(--ratio,.525); container-type:inline-size; position:relative; border-radius:calc(var(--cell-width,220px) * .073); background:linear-gradient(#030405,#090b0e 45%,#000); overflow:hidden; perspective:850px; box-shadow:0 1px 0 #ffffff12,inset 0 2px 5px #000; }
+  .well { position:absolute; inset:11% 2%; perspective:850px; }
+  .half,.leaf { position:absolute; width:100%; height:50%; }
+  .half,.face { overflow:hidden; background:#2a2f37; }
+  .top { top:0; border-radius:4px 4px 0 0; }
+  .bottom { top:50%; border-radius:0 0 4px 4px; }
+  .glyph { position:absolute; width:100%; height:200%; display:flex; align-items:center; justify-content:center; color:#f0f0e9; font-family:"Helvetica Neue",Arial,sans-serif; font-size:calc(67cqw * var(--character-scale,1)); font-weight:700; line-height:1; text-shadow:0 1px 1px #0005; }
+  .bottom .glyph,.back .glyph { top:-100%; }
+  .glyph.emoji { font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; font-size:calc(55cqw * var(--character-scale,1)); font-weight:400; text-shadow:none; }
+  .leaf { top:0; z-index:3; transform-origin:center bottom; transform-style:preserve-3d; }
+  .face { position:absolute; inset:0; backface-visibility:hidden; border-radius:4px 4px 0 0; }
+  .back { transform:rotateX(180deg); }
+  .shade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; }
+  .cast { position:absolute; top:50%; height:50%; width:100%; z-index:2; background:linear-gradient(#000,transparent 75%); opacity:0; }
+  .recess { position:absolute; inset:0; z-index:5; pointer-events:none; border-radius:inherit; box-shadow:inset 3px 5px 12px 3px #000b,inset -1px -2px 5px #0006; }
+  .seam { position:absolute; top:50%; width:100%; height:1px; background:#030405; box-shadow:0 1px 0 #ffffff13; z-index:6; pointer-events:none; }
+  .details { margin-top:33px; text-align:center; height:44px; }
+  #label { font-size:13px; color:#c2c8d0; font-family:ui-monospace,monospace; }
+  #count { margin-top:7px; font-size:10px; letter-spacing:.14em; color:#69727e; }
+  .controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:22px; }
+  button,select { border:1px solid #ffffff17; border-radius:8px; color:#cbd1da; background:#ffffff06; padding:9px 13px; font:12px system-ui; cursor:pointer; }
+  button:hover,select:hover { background:#ffffff10; color:white; }
+  button:focus-visible,select:focus-visible { outline:2px solid #74b6d9; outline-offset:3px; }
+  button:disabled { opacity:.3; cursor:default; }
+  select option { background:#20242a; }
+  .timing { display:flex; align-items:center; gap:10px; margin-top:20px; font-size:11px; color:#87919d; }
+  input { width:105px; accent-color:#bbc6cf; }
+  .catalogs { display:flex; align-items:center; gap:12px; border:1px solid #ffffff17; border-radius:8px; padding:8px 12px; margin:0; font-size:12px; color:#cbd1da; }
+  .catalogs label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .catalogs input { width:14px; margin:0; }
+  .hint { margin:20px 0 0; font-size:10px; color:#626c78; }
+  #board { display:grid; grid-template-columns:repeat(var(--columns,1),var(--cell-width,220px)); gap:calc(var(--cell-width,220px) * .26) calc(var(--cell-width,220px) * .13); }
+  .layout { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:12px; margin-top:20px; color:#87919d; font-size:11px; }
+  .layout label { display:flex; align-items:center; gap:7px; }
+  .layout input { width:54px; padding:8px; background:#ffffff06; border:1px solid #ffffff17; border-radius:7px; color:#cbd1da; }
+  main { max-width:100%; }
+</style>
+<main>
+  <h1>Split-flap / cell study</h1>
+  <div class="frame" aria-hidden="true"><div id="board">
+    <div class="cell"><div class="well">
+      <div class="half top"><span class="glyph" id="top"></span></div>
+      <div class="half bottom"><span class="glyph" id="bottom"></span></div>
+      <div class="cast" id="cast"></div>
+      <div class="leaf" id="leaf">
+        <div class="face front"><span class="glyph" id="front"></span><div class="shade" id="frontShade"></div></div>
+        <div class="face back"><span class="glyph" id="back"></span><div class="shade" id="backShade"></div></div>
+      </div>
+    </div><div class="recess"></div><div class="seam"></div></div>
+  </div></div>
+  <div class="details"><div id="label" role="status"></div><div id="count"></div></div>
+  <div class="controls">
+    <button id="pause" aria-label="Pause animation">Pause</button>
+    <button id="next" aria-label="Show next character">Next →</button>
+    <fieldset class="catalogs" aria-label="Catalogs"><label><input id="asciiEnabled" type="checkbox" checked>ASCII</label><label><input id="emojiEnabled" type="checkbox" checked>Emoji</label><label><input id="colorsEnabled" type="checkbox" checked>Colors</label></fieldset>
+  </div>
+  <div class="layout">
+    <label>Columns <input id="columns" type="number" min="1" max="22" step="1" value="1"></label>
+    <span>×</span>
+    <label>Rows <input id="rows" type="number" min="1" max="6" step="1" value="1"></label>
+    <button id="applyGrid">Apply grid</button>
+    <select id="proportions" aria-label="Cell proportions"><option value="0.525">Tall · original (0.525)</option><option value="0.64">Squat · study (0.64)</option></select>
+  </div>
+  <label class="timing">Transition <select id="transition"><option value="wave">Left-to-right wave</option><option value="together">Together</option></select></label>
+  <label class="timing">Character scale <input id="characterScale" type="range" min="50" max="170" step="5" value="100"><output id="characterScaleValue">100%</output></label>
+  <label class="timing">Flip <input id="speed" type="range" min="500" max="3000" step="100" value="1200"><output id="speedValue">1.2s</output></label>
+  <p class="hint">Space to pause · → to step · no external dependencies</p>
+</main>
+<script>
+  const ascii = Array.from({length:95}, (_,i)=>String.fromCodePoint(i+32));
+  const emoji = ['🤖','🦞','😀','😎','🥳','👻','👽','👾','🐱','🐶','🦊','🐸','🐙','🦋','🌸','🌈','⭐','🌙','🔥','💧','🍋','🍒','🍕','🚀','💎'];
+  const colors = [['White','#f4f4f0'],['Red','#e14c35'],['Orange','#f2912f'],['Yellow','#f1c644'],['Green','#1fc85a'],['Blue','#2f9fff'],['Purple','#8c4cff'],['Black','#000000']].map(([name,color])=>({name,color}));
+  const $ = id => document.getElementById(id);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let catalog=[...ascii,...emoji,...colors], index=33, running=!reduced, busy=false, timer, cells=[], columns=1, rows=1, activeAnimations=[], generation=0;
+  const template=$('board').firstElementChild.cloneNode(true);
+  for(const element of template.querySelectorAll('[id]')) { element.dataset.part=element.id; element.removeAttribute('id'); }
+  function put(cell,part,item) {
+    const element=cell.querySelector(`[data-part="${part}"]`);
+    element.textContent=typeof item==='string'?item:'';
+    element.classList.toggle('emoji',emoji.includes(item));
+    element.parentElement.style.background=item?.color??'#2a2f37';
+  }
+  function metadata() {
+    const item=catalog[index];
+    if(!catalog.length) { $('label').textContent='Select a catalog to begin'; $('count').textContent='0 characters'; return; }
+    const label=typeof item==='string'?`${item===' '?'SPACE':item} · U+${item.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')}`:`${item.name} · ${item.color}`;
+    $('label').textContent=cells.length===1?label:`${columns} × ${rows} · ${cells.length} cells`;
+    $('count').textContent=`${String(index+1).padStart(3,'0')} / ${catalog.length} · ${cells.length===1?(item.color?'COLOR':emoji.includes(item)?'EMOJI':'PRINTABLE ASCII'):'CATALOG OFFSET'}`;
+  }
+  function settle() { cells.forEach((cell,i)=>{for(const part of ['top','bottom','front','back']) put(cell,part,catalog[(index+i)%catalog.length]);}); $('next').disabled=busy||!catalog.length; metadata(); }
+  function fit() {
+    const ratio=Number($('proportions').value);
+    const byWidth=(innerWidth-100)/(columns+(columns-1)*.13);
+    const byHeight=Math.max(220,innerHeight-505)/(rows/ratio+(rows-1)*.26);
+    const width=Math.max(8,Math.min(220,byWidth,byHeight));
+    $('board').style.setProperty('--cell-width',width+'px');
+    $('board').style.setProperty('--columns',columns);
+    $('board').style.setProperty('--ratio',ratio);
+  }
+  function cancelFlip() {
+    generation++;
+    clearTimeout(timer);
+    activeAnimations.forEach(animation=>animation.cancel());
+    activeAnimations=[]; busy=false; $('next').disabled=false;
+  }
+  function build() {
+    cancelFlip();
+    columns=Math.max(1,Math.min(22,Math.round(Number($('columns').value)||1)));
+    rows=Math.max(1,Math.min(6,Math.round(Number($('rows').value)||1)));
+    $('columns').value=columns; $('rows').value=rows;
+    cells=Array.from({length:columns*rows},()=>template.cloneNode(true));
+    $('board').replaceChildren(...cells); fit(); settle(); schedule();
+  }
+  function schedule() { clearTimeout(timer); if(running&&!busy&&catalog.length) timer=setTimeout(flip,1300); }
+  function playback() { $('pause').textContent=running?'Pause':'Play'; $('pause').setAttribute('aria-label',running?'Pause animation':'Play animation'); schedule(); }
+  function lock(value) { $('next').disabled=value; }
+  async function flip() {
+    if(busy||!catalog.length) return;
+    clearTimeout(timer); busy=true; lock(true);
+    const currentGeneration=++generation;
+    const duration=reduced?0:Number($('speed').value), options={duration,fill:'forwards'};
+    const animations=cells.flatMap((cell,i)=>{
+      const old=catalog[(index+i)%catalog.length], next=catalog[(index+i+1)%catalog.length];
+      put(cell,'front',old); put(cell,'bottom',old); put(cell,'top',next); put(cell,'back',next);
+      const part=name=>cell.querySelector(`[data-part="${name}"]`);
+      const delay=reduced||$('transition').value==='together'?0:(i%columns)*100;
+      const timing={...options,delay,fill:'both'};
+      return [
+        part('leaf').animate([{transform:'rotateX(0deg)'},{transform:'rotateX(-180deg)'}],{...timing,easing:'cubic-bezier(.65,0,.35,1)'}),
+        part('frontShade').animate([{opacity:0},{opacity:.55,offset:.5},{opacity:0}],timing),
+        part('backShade').animate([{opacity:.55},{opacity:0}],timing),
+        part('cast').animate([{opacity:0},{opacity:.32,offset:.5},{opacity:0}],timing)
+      ];
+    });
+    activeAnimations=animations;
+    try { await Promise.all(animations.map(a=>a.finished)); }
+    catch { return; }
+    if(currentGeneration!==generation)return;
+    activeAnimations=[];
+    index=(index+1)%catalog.length; settle(); animations.forEach(a=>a.cancel());
+    busy=false; lock(false); schedule();
+  }
+  $('pause').onclick=()=>{running=!running;playback();};
+  $('next').onclick=()=>{running=false;playback();flip();};
+  function updateCatalog() {
+    const current=catalog[index]; cancelFlip();
+    catalog=[...($('asciiEnabled').checked?ascii:[]),...($('emojiEnabled').checked?emoji:[]),...($('colorsEnabled').checked?colors:[])];
+    index=Math.max(0,catalog.indexOf(current)); settle(); schedule();
+  }
+  for(const id of ['asciiEnabled','emojiEnabled','colorsEnabled']) $(id).onchange=updateCatalog;
+  $('characterScale').oninput=()=>{const scale=Number($('characterScale').value); $('board').style.setProperty('--character-scale',scale/100); $('characterScaleValue').textContent=scale+'%';};
+  $('speed').oninput=()=>{$('speedValue').textContent=(Number($('speed').value)/1000).toFixed(1)+'s';};
+  $('applyGrid').onclick=build; $('columns').onchange=build; $('rows').onchange=build; $('proportions').onchange=fit;
+  addEventListener('resize',fit);
+  document.addEventListener('keydown',e=>{if(/INPUT|SELECT|BUTTON/.test(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();$('pause').click();}if(e.code==='ArrowRight'){e.preventDefault();$('next').click();}});
+  build();playback();
+</script>
+</html>
